@@ -1,0 +1,5 @@
+Flask==3.0.3
+Flask-SocketIO==5.3.7
+eventlet==0.37.0
+Flask-CORS==5.0.0
+Flask-Caching==2.3.0
