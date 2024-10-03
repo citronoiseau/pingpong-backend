@@ -19,10 +19,8 @@ socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 
 
 config = {
-    "CACHE_TYPE": "FileSystemCache",
+    "CACHE_TYPE": "SimpleCache",
     "CACHE_DEFAULT_TIMEOUT": 3600,  # in seconds, keep a game around for one hour
-    "CACHE_THRESHOLD": 500, 
-    "CACHE_DIR": "/tmp",
 }
 
 
