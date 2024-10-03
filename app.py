@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()  # noqa: E402 - Required to run before other imports
+
 from flask import Flask, request
 from flask_socketio import SocketIO, emit, disconnect
 from flask_cors import CORS
@@ -6,8 +9,7 @@ from data.gameInfo import Player, GameInfo
 from random import randint
 from uuid import uuid4
 from dataclasses import asdict
-import eventlet
-eventlet.monkey_patch()
+
 
 
 async_mode = 'eventlet'
