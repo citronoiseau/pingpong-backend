@@ -9,15 +9,17 @@ from data.gameInfo import Player, GameInfo
 from random import randint
 from uuid import uuid4
 from dataclasses import asdict
+import time
 
-
+last_emit_time_left = time.time()
+last_emit_time_right = time.time()
 
 async_mode = 'eventlet'
 
 test_game_id = "aaa-aaa-aaa"
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*",  compression=True )
 
 
 config = {
@@ -96,59 +98,86 @@ def handle_disconnect():
 
 @socketio.on("update_game_state_left")
 def handle_left_player_update(data):
-    id = request.args.get('id')  
-    paddle_data = data["paddle"] 
-    ball_data = data["ball"] 
+    global last_emit_time_left
+    current_time = time.time()
     
-
-    game: GameInfo = game_cache.get(id)
-    if game:
-        game.left_paddle = paddle_data["position"]  
-        game.ball.position_x = ball_data["position_x"] 
-        game.ball.position_y = ball_data["position_y"]  
-        game.rounds = data["rounds"]
-        max_rounds = data["max_rounds"]
-        scores_data = data["scores"] 
-        winner = data["winner"]
-
-        player_ids = list(game.players.keys()) 
-
-        game.players[player_ids[0]].score = scores_data[0]  
-        game.players[player_ids[1]].score = scores_data[1]
-
-        if max_rounds:
-            game.max_rounds = max_rounds
-
-        if winner:  
-            game.winner = winner
+    # Throttle the updates to 60 FPS
+    if current_time - last_emit_time_left > 1/60:  # 60 FPS
+        last_emit_time_left = current_time
+        eventlet.sleep(0)  # Yield control to the event loop
         
+        id = request.args.get('id')  
+        paddle_data = data["paddle"] 
+        ball_data = data["ball"] 
+        
+        game: GameInfo = game_cache.get(id)
+        if game:
+            # Compare new data with the current game state
+            is_ball_updated = (
+                game.ball.position_x != ball_data["position_x"] or
+                game.ball.position_y != ball_data["position_y"]
+            )
+            is_left_paddle_updated = game.left_paddle != paddle_data["position"]
+            is_score_updated = (
+                game.players[list(game.players.keys())[0]].score != data["scores"][0] or
+                game.players[list(game.players.keys())[1]].score != data["scores"][1]
+            )
 
-        emit("game_state_updated", {
-            "ball": {
-                "position_x": game.ball.position_x,
-                "position_y": game.ball.position_y
-            },
-            "left_paddle": game.left_paddle,
-            "scores": [game.players[player_ids[0]].score, game.players[player_ids[1]].score],
-            "rounds": game.rounds,
-            "winner": game.winner,
-            "max_rounds": game.max_rounds,
-        }, broadcast=True)
+            # Update game state
+            game.left_paddle = paddle_data["position"]  
+            game.ball.position_x = ball_data["position_x"] 
+            game.ball.position_y = ball_data["position_y"]
+            game.rounds = data["rounds"]
+            game.max_rounds = data.get("max_rounds", game.max_rounds)
+            game.players[list(game.players.keys())[0]].score = data["scores"][0]  
+            game.players[list(game.players.keys())[1]].score = data["scores"][1]
+            game.winner = data.get("winner", game.winner)
+
+            # Emit update only if something has changed
+            if is_ball_updated or is_left_paddle_updated or is_score_updated:
+                emit("game_state_updated", {
+                    "ball": {
+                        "position_x": game.ball.position_x,
+                        "position_y": game.ball.position_y
+                    },
+                    "left_paddle": game.left_paddle,
+                    "scores": [
+                        game.players[list(game.players.keys())[0]].score,
+                        game.players[list(game.players.keys())[1]].score
+                    ],
+                    "rounds": game.rounds,
+                    "winner": game.winner,
+                    "max_rounds": game.max_rounds,
+                }, broadcast=True)
 
 
 
 @socketio.on("update_game_state_right")
 def handle_right_player_update(data):
-    id = request.args.get('id')  
-    paddle_data = data["paddle"]  
+    global last_emit_time_right
+    current_time = time.time()
 
-    game: GameInfo = game_cache.get(id)
-    if game:
-        game.right_paddle = paddle_data["position"]  
+    # Throttle the updates to 60 FPS
+    if current_time - last_emit_time_right > 1/60:  # 60 FPS
+        last_emit_time_right = current_time
+        eventlet.sleep(0)  # Yield control to the event loop
         
-        emit("game_state_updated", {
-            "right_paddle": game.right_paddle
-        }, broadcast=True)
+        id = request.args.get('id')  
+        paddle_data = data["paddle"]  
+
+        game: GameInfo = game_cache.get(id)
+        if game:
+            # Compare new paddle position with the current one
+            is_right_paddle_updated = game.right_paddle != paddle_data["position"]
+
+            # Update the game state
+            game.right_paddle = paddle_data["position"]
+
+            # Emit update only if the right paddle has changed
+            if is_right_paddle_updated:
+                emit("game_state_updated", {
+                    "right_paddle": game.right_paddle
+                }, broadcast=True)
 
 
 @socketio.on("game_pause_updated")
