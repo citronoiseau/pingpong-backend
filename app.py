@@ -102,8 +102,8 @@ def handle_left_player_update(data):
     global last_emit_time_left
     current_time = time.time()
     
-    # Throttle the updates to 60 FPS
-    if current_time - last_emit_time_left > 1/120:  # 60 FPS
+
+    if current_time - last_emit_time_left > 1/60: 
         last_emit_time_left = current_time
         eventlet.sleep(0)  # Yield control to the event loop
         
@@ -163,8 +163,8 @@ def handle_right_player_update(data):
     global last_emit_time_right
     current_time = time.time()
 
-    # Throttle the updates to 60 FPS
-    if current_time - last_emit_time_right > 1/120:  # 60 FPS
+
+    if current_time - last_emit_time_right > 1/60:  
         last_emit_time_right = current_time
         eventlet.sleep(0)  # Yield control to the event loop
         
