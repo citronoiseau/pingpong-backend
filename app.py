@@ -17,7 +17,6 @@ last_emit_time_right = time.time()
 
 async_mode = 'eventlet'
 
-test_game_id = "aaa-aaa-aaa"
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*",  compression=True,  binary=True )
@@ -39,9 +38,6 @@ def rand_xyz() -> str:
     return "".join(chr(randint(a, z)) for _ in range(0, 3))
 
 
-def test_uuid(ch: str) -> str:
-    return f"{ch * 8}-{ch * 4}-{ch * 4}-{ch * 4}-{ch * 12}"
-
 @app.route("/")
 def hello_world():
     return "<p>Hello, World!</p>"
@@ -49,11 +45,12 @@ def hello_world():
 
 @app.route("/new_game")
 def new_game():
-    id = test_game_id  # test id
-    while id and game_cache.has(id):
+    id = f"{rand_xyz()}-{rand_xyz()}-{rand_xyz()}"
+    
+    while game_cache.has(id):
         id = f"{rand_xyz()}-{rand_xyz()}-{rand_xyz()}"
     game = GameInfo(id)
-    player1_id = test_uuid("a") if game.id == test_game_id else str(uuid4())
+    player1_id = str(uuid4())
     player1 = Player(player1_id, "host", "Player 1", 0)
     game.players[player1.id] = player1
     game_cache.set(id, game)
@@ -67,7 +64,7 @@ def join_game(id: str):
     game: GameInfo = game_cache.get(id)
     if len(game.players) == game.max_players:
         raise RuntimeError(f"Game {id} is full.")
-    player2_id = test_uuid("b") if game.id == test_game_id else str(uuid4())
+    player2_id = str(uuid4())
     player2 = Player(player2_id, "guest", "Player 2", 0)
     game.players[player2.id] = player2
     game_cache.set(id, game)
