@@ -4,3 +4,4 @@ eventlet
 Flask-CORS
 Flask-Caching
 gunicorn
+msgpack
