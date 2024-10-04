@@ -151,7 +151,11 @@ def handle_left_player_update(data):
                     "max_rounds": game.max_rounds,
                 }
                 # Use binary serialization for faster transmission
-        emit("game_state_updated", msgpack.packb(game_state), broadcast=True)
+                try:
+                    packed_data = msgpack.packb(game_state)
+                    emit("game_state_updated", packed_data, broadcast=True)
+                except Exception as e:
+                    print(f"Error encoding game state: {e}")
 
 
 @socketio.on("update_game_state_right")
@@ -177,7 +181,11 @@ def handle_right_player_update(data):
 
             # Emit update only if the right paddle has changed
             if is_right_paddle_updated:
-                emit("game_state_updated", msgpack.packb({"right_paddle": game.right_paddle}), broadcast=True)
+                try:
+                    packed_data = msgpack.packb({"right_paddle": game.right_paddle})
+                    emit("game_state_updated", packed_data, broadcast=True)
+                except Exception as e:
+                    print(f"Error encoding game state for right paddle: {e}")
 
 
 @socketio.on("game_pause_updated")
