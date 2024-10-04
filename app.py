@@ -10,6 +10,7 @@ from random import randint
 from uuid import uuid4
 from dataclasses import asdict
 import time
+import msgpack
 
 last_emit_time_left = time.time()
 last_emit_time_right = time.time()
@@ -19,7 +20,7 @@ async_mode = 'eventlet'
 test_game_id = "aaa-aaa-aaa"
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*",  compression=True )
+socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*",  compression=True,  binary=True )
 
 
 config = {
@@ -102,7 +103,7 @@ def handle_left_player_update(data):
     current_time = time.time()
     
     # Throttle the updates to 60 FPS
-    if current_time - last_emit_time_left > 1/60:  # 60 FPS
+    if current_time - last_emit_time_left > 1/120:  # 60 FPS
         last_emit_time_left = current_time
         eventlet.sleep(0)  # Yield control to the event loop
         
@@ -134,8 +135,8 @@ def handle_left_player_update(data):
             game.winner = data.get("winner", game.winner)
 
             # Emit update only if something has changed
-            if is_ball_updated or is_left_paddle_updated or is_score_updated:
-                emit("game_state_updated", {
+        if is_ball_updated or is_left_paddle_updated or is_score_updated:
+                game_state = {
                     "ball": {
                         "position_x": game.ball.position_x,
                         "position_y": game.ball.position_y
@@ -148,8 +149,9 @@ def handle_left_player_update(data):
                     "rounds": game.rounds,
                     "winner": game.winner,
                     "max_rounds": game.max_rounds,
-                }, broadcast=True)
-
+                }
+                # Use binary serialization for faster transmission
+        emit("game_state_updated", msgpack.packb(game_state), broadcast=True)
 
 
 @socketio.on("update_game_state_right")
@@ -158,7 +160,7 @@ def handle_right_player_update(data):
     current_time = time.time()
 
     # Throttle the updates to 60 FPS
-    if current_time - last_emit_time_right > 1/60:  # 60 FPS
+    if current_time - last_emit_time_right > 1/120:  # 60 FPS
         last_emit_time_right = current_time
         eventlet.sleep(0)  # Yield control to the event loop
         
@@ -175,9 +177,7 @@ def handle_right_player_update(data):
 
             # Emit update only if the right paddle has changed
             if is_right_paddle_updated:
-                emit("game_state_updated", {
-                    "right_paddle": game.right_paddle
-                }, broadcast=True)
+                emit("game_state_updated", msgpack.packb({"right_paddle": game.right_paddle}), broadcast=True)
 
 
 @socketio.on("game_pause_updated")
